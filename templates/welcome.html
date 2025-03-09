@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="welcome-container">
+    <h1>Welcome to the Blog</h1>
+    <p>Please login or create an account to continue.</p>
+
+    <div class="auth-buttons">
+        <a href="{{ url_for('login') }}" class="btn btn-primary">Login</a>
+        <a href="{{ url_for('signup') }}" class="btn btn-secondary">Create Account</a>
+    </div>
+</div>
+{% endblock %}

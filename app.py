@@ -1,19 +1,22 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from flask_login import UserMixin
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import os
+from flask_paginate import Pagination, get_page_parameter
+from werkzeug.utils import secure_filename
+import time
+from sqlalchemy.sql import func
 
 
 
 
 app = Flask(__name__)
-# Configure your database URI (using SQLite here for simplicity)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.urandom(24).hex() #this is used to encrypt the session cookie
+app.config['SECRET_KEY'] = os.urandom(24).hex() #encryption algo for session cookie
 
 
 login_manager = LoginManager(app)
@@ -76,16 +79,48 @@ class BlogPost(db.Model):
         return f"BlogPost('{self.title}', '{self.date_created}')"
 
 
+# Add follower relationship table
+followers = db.Table('followers',
+    db.Column('follower_id', db.Integer, db.ForeignKey('user.id')),
+    db.Column('followed_id', db.Integer, db.ForeignKey('user.id'))
+)
+
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
+    bio = db.Column(db.Text, nullable=True)
+    profile_pic = db.Column(db.String(200), nullable=True, default='default.jpg')
     posts = db.relationship('BlogPost', backref='author', lazy=True)
     date_joined = db.Column(db.DateTime, default=datetime.utcnow)
-    is_active = db.Column(db.Boolean, default=True) #when a user signs up, they are active
+    is_active = db.Column(db.Boolean, default=True)
 
+    # Add followers relationship
+    followed = db.relationship(
+        'User', secondary=followers,
+        primaryjoin=(followers.c.follower_id == id),
+        secondaryjoin=(followers.c.followed_id == id),
+        backref=db.backref('followers', lazy='dynamic'), lazy='dynamic')
+
+    def follow(self, user):
+        if not self.is_following(user):
+            self.followed.append(user)
+            return self
+
+    def unfollow(self, user):
+        if self.is_following(user):
+            self.followed.remove(user)
+            return self
+
+    def is_following(self, user):
+        return self.followed.filter(followers.c.followed_id == user.id).count() > 0
+
+    def followed_posts(self):
+        return BlogPost.query.join(
+            followers, (followers.c.followed_id == BlogPost.user_id)
+        ).filter(followers.c.follower_id == self.id).order_by(BlogPost.date_created.desc())
 
 # ----- Routes -----
 @app.route('/')
@@ -157,6 +192,104 @@ def delete_post(post_id):
     db.session.commit()
     return redirect(url_for('index'))
 
+@app.route('/profile/<username>')
+def profile(username):
+    user = User.query.filter_by(username=username).first_or_404()
+
+    # Get pagination parameters
+    page = request.args.get(get_page_parameter(), type=int, default=1)
+    per_page = 5
+    offset = (page - 1) * per_page
+
+    # Get user's posts with pagination
+    posts = BlogPost.query.filter_by(author_id=user.id).order_by(BlogPost.date_created.desc())
+    total = posts.count()
+    paginated_posts = posts.offset(offset).limit(per_page).all()
+
+    pagination = Pagination(page=page, total=total, per_page=per_page,
+                           css_framework='bootstrap4')
+
+    return render_template('profile.html', user=user, posts=paginated_posts,
+                          pagination=pagination)
+
+@app.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        # Update user information
+        current_user.name = request.form['name']
+        current_user.email = request.form['email']
+        current_user.bio = request.form['bio']
+
+        # Handle profile picture upload
+        if 'profile_pic' in request.files:
+            file = request.files['profile_pic']
+            if file and file.filename != '' and allowed_file(file.filename):
+                # Save new profile pic
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                current_user.profile_pic = filename
+
+        db.session.commit()
+        flash('Your profile has been updated!', 'success')
+        return redirect(url_for('profile', username=current_user.username))
+
+    return render_template('edit_profile.html', user=current_user)
+
+@app.route('/follow/<username>')
+@login_required
+def follow(username):
+    user = User.query.filter_by(username=username).first()
+    if user is None:
+        flash('User not found.', 'error')
+        return redirect(url_for('index'))
+    if user == current_user:
+        flash('You cannot follow yourself!', 'error')
+        return redirect(url_for('profile', username=username))
+
+    current_user.follow(user)
+    db.session.commit()
+    flash(f'You are now following {username}!', 'success')
+    return redirect(url_for('profile', username=username))
+
+@app.route('/unfollow/<username>')
+@login_required
+def unfollow(username):
+    user = User.query.filter_by(username=username).first()
+    if user is None:
+        flash('User not found.', 'error')
+        return redirect(url_for('index'))
+    if user == current_user:
+        flash('You cannot unfollow yourself!', 'error')
+        return redirect(url_for('profile', username=username))
+
+    current_user.unfollow(user)
+    db.session.commit()
+    flash(f'You have unfollowed {username}.', 'success')
+    return redirect(url_for('profile', username=username))
+
+@app.route('/followers/<username>')
+def followers(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    followers = user.followers.all()
+    return render_template('followers.html', user=user, followers=followers)
+
+@app.route('/following/<username>')
+def following(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    followed = user.followed.all()
+    return render_template('following.html', user=user, followed=followed)
+
+# Configure upload folder
+UPLOAD_FOLDER = 'static/profile_pics'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Ensure upload directory exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 if __name__ == '__main__':
     with app.app_context():

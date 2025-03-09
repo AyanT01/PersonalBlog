@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}All Blog Posts{% endblock %}
+
+{% block content %}
+<h1>All Blog Posts</h1>
+{% if posts %}
+  <ul class="post-list">
+    {% for post in posts %}
+      <li>
+        <h2><a href="{{ url_for('view_post', post_id=post.id) }}">{{ post.title }}</a></h2>
+        <p class="date">{{ post.date_created.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p>{{ post.content[:200] }}{{ '...' if post.content|length > 200 else '' }}</p>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No posts yet. <a href="{{ url_for('create_post') }}">Create one</a>!</p>
+{% endif %}
+{% endblock %}

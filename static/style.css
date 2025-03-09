@@ -1,0 +1,130 @@
+/* Basic Reset & Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background: #f9fafb;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+nav {
+    background-color: #1a1a1a;
+    padding: 1em;
+    text-align: center;
+}
+
+nav a {
+    color: #fff;
+    text-decoration: none;
+    margin: 0 10px;
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+nav a:hover {
+    color: #007BFF;
+}
+
+/* Main Content Container */
+.container {
+    width: 90%;
+    max-width: 800px;
+    margin: 2em auto;
+    background: #ffffff;
+    padding: 2em;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    border-radius: 10px;
+}
+
+/* Headings & Date */
+h1, h2 {
+    margin-top: 0;
+}
+
+.date {
+    font-size: 0.85em;
+    color: #999;
+    margin-bottom: 1em;
+}
+
+/* Posts Styling */
+.post-list {
+    list-style: none;
+    padding: 0;
+}
+
+.post-list li {
+    background: #f0f4f8;
+    padding: 20px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.post-list li:hover {
+    box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+}
+
+.post-list li h2 a {
+    text-decoration: none;
+    color: #007BFF;
+}
+
+.post-list li h2 a:hover {
+    text-decoration: underline;
+}
+
+.date {
+    font-size: 0.85em;
+    color: #888;
+}
+
+/* Forms Styling */
+input[type="text"], textarea {
+    width: 100%;
+    padding: 0.7em;
+    font-size: 1em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    margin-bottom: 1em;
+}
+
+input[type="submit"] {
+    padding: 0.7em 1.5em;
+    font-size: 1em;
+    color: white;
+    background: #007BFF;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+input[type="submit"]:hover {
+    background: #0056b3;
+}
+
+nav form {
+    display: inline-block;
+    margin-left: 20px;
+}
+
+nav input[type="text"] {
+    padding: 0.4em;
+    border-radius: 4px;
+    border: none;
+    outline: none;
+}
+
+nav button, nav input[type="submit"] {
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.4em 1em;
+    cursor: pointer;
+}
+
+nav button:hover, nav input[type="submit"]:hover {
+    background-color: #0056b3;
+}
